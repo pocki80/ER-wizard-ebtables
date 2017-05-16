@@ -30,10 +30,29 @@ echo "EdgeMAX ER-wizard-ebtables Wizard started $(date +%Y-%m-%d/%H:%M:%S.%N)" >
 #base64begin 
 # !dont edit or remove this comment!
 
+####################
+# migrate /etc/rc.local to pre-config.d/ebtables.sh if not yet done??
+
 # remove installtion block
 sed -i '/^#base64begin/,/^#base64end$/d' $0
 # !dont edit or remove this comment!
 #base64end
+
+if [ ! -f /config/scripts/pre-config.d/ebtables.sh ]; then
+    echo -n "{\"success\":\"0\",\"error\":\"ebtables.sh not found\""
+    echo -n " },"
+    echo    " \"definition\":{ }}"
+    exit 0
+fi
+
+####################
+# parse existing settings and correct if needed!
+# 
+# remove ACCEPT for olsr-bridges
+# remove ebtables for interfaces that are no longer bridged
+# complete ACCEPT if -i or -o is missing
+# compare ebtables.sh to live-settings
+
 
 # function called when you click the wizard
 load () {
@@ -75,9 +94,57 @@ load () {
     if [ -f /config/user-data/autoupdate.dat ] && [ "$(grep -i "wizard-ebtables=yes" /config/user-data/autoupdate.dat | wc -l)" == "1" ]; then
         autoupdatefromgithub=',"autoupdatefromgithub":"on"'
     fi
+    
+    
+    ####### get bridges and their interfaces 
+    # get mesh interfaces
+    olsrd4default='/etc/default/olsrd'
+    olsrd4meshif=$(awk -F= '/MESH_IF=/ { print $2 }' $olsrd4default | tr -d \")
+    # get current accept-rules
+    ebtablesaccept=$(ebtables -L FORWARD | sed -e '/^$/d' | grep -E "\-[io] eth.{1,6} \-j ACCEPT")
+    # get bridges
+    bridgeslist=$(/usr/sbin/brctl show | awk {'print $1","$4'})
+
+    # generate list arrays
+    for i in $bridgeslist; do
+        part1=$(echo $i | cut -d"," -f1)
+        [ "$part1" == "bridge" ] && continue
+        part2=$(echo $i | cut -d"," -f2)
+        if [ "$part2" ]; then
+            bridge=$part1
+            port=$part2
+            moveon=""
+        else
+            port=$part1
+            moveon=1
+        fi
+        for this in "$ebtablesaccept"; do
+            rules=$(echo "$ebtablesaccept" | grep -c "$port ")
+        done
+        interfaces=$interfaces'{'$intfstatus'"interface":"'${port}'","name":"'${name}'","rules":"'${rules}'"},'
+        [ "$moveon" ] && continue
+        olsron=""
+        if [[ "$olsrd4meshif" != "${olsrd4meshif/ /}" ]]; then
+            olsrd4meshif=$(echo $olsrd4meshif | tr -d \")
+            for mintf in $olsrd4meshif; do
+                if [[ "$mintf" == "$bridge" ]]; then
+                    olsron="OLSRv1"
+                fi
+            done
+        else
+            if [[ "$olsrd4meshif" == "$bridge" ]]; then
+                olsron="OLSRv1"
+            fi
+        fi
+        bridges=$bridges'{"olsr":"'${olsron}'",'$bridgestatus'"bridge":"'${bridge}'","name":"'${name}'"},'
+    done
+    bridges=${bridges%","}
+    interfaces=${interfaces%","}
+    # end
+    ####### get bridges and their interfaces 
 
     # get all variables together for output
-    echo -n "{\"success\":\"1\",\"data\":{ $packagestatus $autoupdatefromgithub $updatestatus $wizards"
+    echo -n "{\"success\":\"1\",\"data\":{ $packagestatus $autoupdatefromgithub $updatestatus ,\"bridges\":[$bridges],\"interfaces\":[$interfaces]"
     echo -n " },"
     echo    " \"definition\":{ }}"
 }

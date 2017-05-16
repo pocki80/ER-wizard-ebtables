@@ -2,7 +2,7 @@
 
 EdgeMAX Wizard "ER-wizard-ebtables" created 05/2017 by CPO for FunkFeuer.at
 Works on EdgeRouter and EdgeRouter X / X-SFP (system version 1.9.0+)
-versioninfo=201705150
+versioninfo=201705151
 ^-- use version identifier as number: YYYYMMDDX whereas X can be intraday-version
 autoupdate=201705150
 ^-- set autoupdate the same version identifier to allow autoupdates
@@ -23,23 +23,37 @@ autoupdate=201705150
     <tr><td colspan="2"><div><span><input id="autoupdatefromgithub" name="autoupdatefromgithub" type="checkbox" />&nbsp;</span></div><div><span class="text" data-infotip='Runs a daily job checking for updates - installs available auto-updates automatically'> Upgrade Wizard from GitHub <b>automatically</b> (just this AutoUpdate-Wizard, not the individual Wizards) </span></div></td></tr>
   </table>
 </div>
-<!--fieldset id="wizards" name="wizards" class="primary expanded">
-    <legend>Wizards enabled for AutoUpdate</legend>
-    <div class="addable" data-min="1" data-max="1" data-object="wizards" data-objectify="1">
+<fieldset id="bridges" name="bridges" class="primary expanded">
+    <legend>ALLOW ebtables FORWARD for these bridges and their interfaces</legend>
+    <div class="addable" data-min="1" data-max="1" data-object="bridges" data-objectify="1">
         <div class="addable-template" style="padding-top:0px;">
             <div class="multi">
-                <div><input id="internal" name="internal" type="hidden" /></div>
                 <div><input name="enabled" type="checkbox" onclick="validate()" disabled /></div>
-                <div><input id="name" name="name" size="16" disabled /></div>
-                <div> Current:<input id="current" name="current" size="10" disabled /></div>
-                <div> Github:<input id="git" name="git" size="10" disabled /></div>
-                <div><input id="text" name="text" size="20" disabled /></div>
+                <div><input id="bridge" name="bridge" size="5" disabled /></div>
+                <div><input id="olsr" name="olsr" size="8" disabled /></div>
+                <div><input id="name" name="name" size="20" disabled /></div>
             </div>
         </div>
         <div class="addable-container"></div>
         <button type="button" class="addable-add" style="position:absolute;right:0px;opacity:0.0;filter:alpha(opacity=0);" disabled></button>
     </div>
-</fieldset-->
+</fieldset>
+
+<fieldset id="interfaces" name="interfaces" class="primary expanded">
+    <legend>Interfaces and currently assigned ACCEPT-Rules (count only)</legend>
+    <div class="addable" data-min="1" data-max="1" data-object="interfaces" data-objectify="1">
+        <div class="addable-template" style="padding-top:0px;">
+            <div class="multi">
+                <div><input name="enabled" type="checkbox" onclick="validate()" disabled /></div>
+                <div><input id="interface" name="interfaces" size="5" disabled /></div>
+                <div><input id="rules" name="rules" size="8" disabled /></div>
+                <div><input id="name" name="name" size="20" disabled /></div>
+            </div>
+        </div>
+        <div class="addable-container"></div>
+        <button type="button" class="addable-add" style="position:absolute;right:0px;opacity:0.0;filter:alpha(opacity=0);" disabled></button>
+    </div>
+</fieldset>
 
 <br><br>
 <script>
@@ -56,6 +70,23 @@ function colors() {
         input.style.color = "green";
         //enable();
     } 
+    var v6nodes = document.getElementById("bridges").getElementsByTagName('*');
+    var remember=0;
+    for(var i=0; i<v6nodes.length; i++) {
+        if (v6nodes[i].name == "olsr" && v6nodes[i].value!=="") {
+            remember=1;
+        } else {
+            remember=0;
+        }
+        if (v6nodes[i].name == "name") {
+            v6nodes[i].disabled = true;
+        } else if (v6nodes[i].name == "bridge") {
+            v6nodes[i].disabled = true;
+        } else if (v6nodes[i].name == "enabled" && remember==0) {
+            v6nodes[i].disabled = false;
+        }
+    }
+
 }
 function validate() {
 }
