@@ -53,6 +53,22 @@ fi
 # complete ACCEPT if -i or -o is missing
 # compare ebtables.sh to live-settings
 
+### use this for br0.1100 like br0(eth0,eth1)
+#ebtables -A FORWARD -p 802_1Q --vlan-id 1100 -j ACCEPT
+#
+### more precize: -i/o for each eth-port of br0
+#ebtables -A FORWARD -i eth0 -p 802_1Q --vlan-id 1100 -j ACCEPT
+#ebtables -A FORWARD -o eth0 -p 802_1Q --vlan-id 1100 -j ACCEPT
+#ebtables -A FORWARD -i eth1 -p 802_1Q --vlan-id 1100 -j ACCEPT
+#ebtables -A FORWARD -o eth1 -p 802_1Q --vlan-id 1100 -j ACCEPT
+#
+#
+### use this for bridged vif-eth-ports like br1(eth0.8,eth2.8)
+#ebtables -A FORWARD -i eth0.8 -j ACCEPT
+#ebtables -A FORWARD -o eth0.8 -j ACCEPT
+#ebtables -A FORWARD -i eth2.8 -j ACCEPT
+#ebtables -A FORWARD -o eth2.8 -j ACCEPT
+
 
 # function called when you click the wizard
 load () {
