@@ -1,0 +1,68 @@
+<!--
+
+EdgeMAX Wizard "ER-wizard-ebtables" created 05/2017 by CPO for FunkFeuer.at
+Works on EdgeRouter and EdgeRouter X / X-SFP (system version 1.9.0+)
+versioninfo=201705150
+^-- use version identifier as number: YYYYMMDDX whereas X can be intraday-version
+autoupdate=201705150
+^-- set autoupdate the same version identifier to allow autoupdates
+
+
+-->
+<div class="instructions">
+    <h3>EBTABLES</h3>
+</div>
+<legend style="position:absolute;right:0px;padding:5px;">
+    <center>EdgeMAX Wizard "ER-wizard-ebtables"<br>created 05/2017 by CPO for FunkFeuer.at<br>
+    Version 20170515</center>
+</legend>
+<div style="padding:15px;border: 1px solid lightgray;width:648px">
+  <table border="0">
+    <tr><td style="vertical-align:middle">Update Info:</td>   <td><input style="right:10px" id="updatestatus" name="updatestatus" type="text" size="60" disabled /></td></tr>
+    <tr><td colspan="2"><div><span><input id="updatefromgithub" name="updatefromgithub" type="checkbox" />&nbsp;</span></div><div><span class="text" data-infotip='Load and install newest version directly from Github'> Upgrade Wizard from GitHub (online only) on 'Apply'</span></div></td></tr>
+    <tr><td colspan="2"><div><span><input id="autoupdatefromgithub" name="autoupdatefromgithub" type="checkbox" />&nbsp;</span></div><div><span class="text" data-infotip='Runs a daily job checking for updates - installs available auto-updates automatically'> Upgrade Wizard from GitHub <b>automatically</b> (just this AutoUpdate-Wizard, not the individual Wizards) </span></div></td></tr>
+  </table>
+</div>
+<!--fieldset id="wizards" name="wizards" class="primary expanded">
+    <legend>Wizards enabled for AutoUpdate</legend>
+    <div class="addable" data-min="1" data-max="1" data-object="wizards" data-objectify="1">
+        <div class="addable-template" style="padding-top:0px;">
+            <div class="multi">
+                <div><input id="internal" name="internal" type="hidden" /></div>
+                <div><input name="enabled" type="checkbox" onclick="validate()" disabled /></div>
+                <div><input id="name" name="name" size="16" disabled /></div>
+                <div> Current:<input id="current" name="current" size="10" disabled /></div>
+                <div> Github:<input id="git" name="git" size="10" disabled /></div>
+                <div><input id="text" name="text" size="20" disabled /></div>
+            </div>
+        </div>
+        <div class="addable-container"></div>
+        <button type="button" class="addable-add" style="position:absolute;right:0px;opacity:0.0;filter:alpha(opacity=0);" disabled></button>
+    </div>
+</fieldset-->
+
+<br><br>
+<script>
+function colors() {
+    document.getElementById('updatestatus').disabled = true;
+    var input = document.getElementById('updatestatus');
+    input.style.color = "black";
+    document.getElementById('updatefromgithub').disabled = true;
+    if (input.value.match(/new version available/)) {
+        document.getElementById('updatefromgithub').disabled = false;
+        input.style.color = "red";
+        //disable();
+    } else if (input.value.match(/up-to-date/)) {
+        input.style.color = "green";
+        //enable();
+    } 
+}
+function validate() {
+}
+document.onchange=function(){
+    colors();
+}
+document.onsubmit=function(){
+    colors();
+}
+</script>
