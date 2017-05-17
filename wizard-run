@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # EdgeMAX Wizard "ER-wizard-ebtables" created 05/2017 by CPO/BMK for FunkFeuer.at
-# Version 20170515
+# Version 20170517
 # ^-- previous line is used from bmk-webstatus-package as version identification, dont remove "Version "
 # Shortform: ER-wizard-AutoUpdate
 #
@@ -153,6 +153,23 @@ load () {
             fi
         fi
         bridges=$bridges'{"olsr":"'${olsron}'",'$bridgestatus'"bridge":"'${bridge}'","name":"'${name}'"},'
+        ## now check for vifs of that bridge, i.e. br0.1100
+        for v in $(ls /opt/vyatta/config/active/interfaces/bridge/$bridge/vif 2>/dev/null); do
+            olsron=""
+            if [[ "$olsrd4meshif" != "${olsrd4meshif/ /}" ]]; then
+                olsrd4meshif=$(echo $olsrd4meshif | tr -d \")
+                for mintf in $olsrd4meshif; do
+                    if [[ "$mintf" == "$bridge"".""$v" ]]; then
+                        olsron="OLSRv1"
+                    fi
+                done
+            else
+                if [[ "$olsrd4meshif" == "$bridge"".""$v" ]]; then
+                    olsron="OLSRv1"
+                fi
+            fi
+            bridges=$bridges'{"olsr":"'${olsron}'",'$bridgestatus'"bridge":"'${bridge}'.'${v}'","name":"'${name}'"},'
+        done
     done
     bridges=${bridges%","}
     interfaces=${interfaces%","}
