@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # EdgeMAX Wizard "ER-wizard-ebtables" created 05/2017 by CPO/BMK for FunkFeuer.at
-# Version 20170517
+# Version 20170620
 # ^-- previous line is used from bmk-webstatus-package as version identification, dont remove "Version "
 # Shortform: ER-wizard-AutoUpdate
 #
@@ -44,31 +44,6 @@ if [ ! -f /config/scripts/pre-config.d/ebtables.sh ]; then
     echo    " \"definition\":{ }}"
     exit 0
 fi
-
-####################
-# parse existing settings and correct if needed!
-# 
-# remove ACCEPT for olsr-bridges
-# remove ebtables for interfaces that are no longer bridged
-# complete ACCEPT if -i or -o is missing
-# compare ebtables.sh to live-settings
-
-### use this for br0.1100 like br0(eth0,eth1)
-#ebtables -A FORWARD -p 802_1Q --vlan-id 1100 -j ACCEPT
-#
-### more precize: -i/o for each eth-port of br0
-#ebtables -A FORWARD -i eth0 -p 802_1Q --vlan-id 1100 -j ACCEPT
-#ebtables -A FORWARD -o eth0 -p 802_1Q --vlan-id 1100 -j ACCEPT
-#ebtables -A FORWARD -i eth1 -p 802_1Q --vlan-id 1100 -j ACCEPT
-#ebtables -A FORWARD -o eth1 -p 802_1Q --vlan-id 1100 -j ACCEPT
-#
-#
-### use this for bridged vif-eth-ports like br1(eth0.8,eth2.8)
-#ebtables -A FORWARD -i eth0.8 -j ACCEPT
-#ebtables -A FORWARD -o eth0.8 -j ACCEPT
-#ebtables -A FORWARD -i eth2.8 -j ACCEPT
-#ebtables -A FORWARD -o eth2.8 -j ACCEPT
-
 
 # function called when you click the wizard
 load () {
@@ -118,6 +93,7 @@ load () {
     olsrd4meshif=$(awk -F= '/MESH_IF=/ { print $2 }' $olsrd4default | tr -d \")
     # get current accept-rules
     ebtablesaccept=$(ebtables -L FORWARD | sed -e '/^$/d' | grep -E "\-[io] eth.{1,6} \-j ACCEPT")
+    ebtablesacceptv=$(ebtables -L FORWARD | sed -e '/^$/d' | grep -E "\-p 802_1Q \-[io] eth. --vlan-id .{1,4} \-j ACCEPT")
     # get bridges
     bridgeslist=$(/usr/sbin/brctl show | awk {'print $1","$4'})
 
@@ -128,15 +104,18 @@ load () {
         part2=$(echo $i | cut -d"," -f2)
         if [ "$part2" ]; then
             bridge=$part1
+            bridgestatus=""
             port=$part2
             moveon=""
         else
             port=$part1
             moveon=1
         fi
+        intfstatus=""
         for this in "$ebtablesaccept"; do
-            rules=$(echo "$ebtablesaccept" | grep -c "$port ")
+            rules=$(echo "$ebtablesaccept" | grep -c " $port \-j")
         done
+        [ $rules \> 0 ] && intfstatus='"enabled":"on",' && bridgestatus='"enabled":"on",'
         interfaces=$interfaces'{'$intfstatus'"interface":"'${port}'","name":"'${name}'","rules":"'${rules}'"},'
         [ "$moveon" ] && continue
         olsron=""
@@ -168,6 +147,8 @@ load () {
                     olsron="OLSRv1"
                 fi
             fi
+            rules=$(echo "$ebtablesacceptv" | grep -c "vlan-id $v ")
+            [ $rules \> 0 ] && bridgestatus='"enabled":"on",' || bridgestatus=''
             bridges=$bridges'{"olsr":"'${olsron}'",'$bridgestatus'"bridge":"'${bridge}'.'${v}'","name":"'${name}'"},'
         done
     done
@@ -182,8 +163,168 @@ load () {
     echo    " \"definition\":{ }}"
 }
 
+change_port () {
+    p="$1"; onoff="$2"; type="$3"; bridgevif="$4";
+    # type 1: #ebtables -A FORWARD -i eth0.8 -j ACCEPT
+    # type 2: #ebtables -A FORWARD -i eth0 -p 802_1Q --vlan-id 1100 -j ACCEPT
+    #echo "DEBUG: changeport "$p" to "$onoff" with type "$type"("$bridgevif")" >>$log
+    for dir in $(echo "i o"); do
+        if [ "$type" == "1" ]; then
+            string="ebtables -A FORWARD -$dir $p -j ACCEPT"
+            stringlive="$dir $p -j ACCEPT"
+        elif [ "$type" == "2" ]; then
+            string="ebtables -A FORWARD -$dir $p -p 802_1Q --vlan-id $bridgevif -j ACCEPT"
+            stringlive="p 802_1Q -$dir $p --vlan-id $bridgevif \-j ACCEPT"
+        fi
+        if [ "$onoff" == "off" ]; then
+            linenumber=$(grep -ni "$string" /config/scripts/pre-config.d/ebtables.sh | awk -F: {'print $1'})
+            if [ "$linenumber" ]; then
+                echo "changeport "$p" to "$onoff" with type "$type"("$bridgevif") - remove from ebtables.sh" >>$log
+                sed -i $linenumber'd' /config/scripts/pre-config.d/ebtables.sh 2>>$log
+            fi
+            if [ $(echo $ebtablesstate | grep -e "$stringlive" | wc -l) -eq 1 ]; then
+                echo "changeport "$p" to "$onoff" with type "$type"("$bridgevif") - apply delete to ebtables" >>$log
+                $(echo $string | sed -e "s/ -A / -D /g") >>$log 2>>$log
+            fi
+        elif [ "$onoff" == "on" ]; then
+            linenumber=$(grep -ni "$string" /config/scripts/pre-config.d/ebtables.sh | awk -F: {'print $1'})
+            if [ "$linenumber" == "" ]; then
+                echo "changeport "$p" to "$onoff" with type "$type"("$bridgevif") - insert to ebtables.sh" >>$log
+                linenumber=$(grep -ni "exit 0" /config/scripts/pre-config.d/ebtables.sh | awk -F: {'print $1'})
+                sed -i $linenumber'i\
+'"$string" /config/scripts/pre-config.d/ebtables.sh >>$log 2>>$log
+            fi
+            if [ $(echo $ebtablesstate | grep -e "$stringlive" | wc -l) -eq 0 ]; then
+                echo "changeport "$p" to "$onoff" with type "$type"("$bridgevif") - apply insert to ebtables" >>$log
+                $string >>$log 2>>$log
+            fi
+        fi
+    done
+    return 0
+}
+
+check_and_correct () {
+    ####### get bridges and their interfaces 
+    ebtablesstate=$(ebtables -L FORWARD)
+    # get mesh interfaces
+    olsrd4default='/etc/default/olsrd'
+    olsrd4meshif=$(awk -F= '/MESH_IF=/ { print $2 }' $olsrd4default | tr -d \")
+
+    # loop bridges and bridge-vif for all member-ports
+    for i in $(ls /opt/vyatta/config/active/interfaces/bridge/ 2>/dev/null); do
+        portlist=()
+        olsron=""
+        if [[ "$olsrd4meshif" != "${olsrd4meshif/ /}" ]]; then
+            olsrd4meshif=$(echo $olsrd4meshif | tr -d \")
+            for mintf in $olsrd4meshif; do
+                if [[ "$mintf" == "$i" ]]; then
+                    olsron="OLSRv1"
+                fi
+            done
+        else
+            if [[ "$olsrd4meshif" == "$i" ]]; then
+                olsron="OLSRv1"
+            fi
+        fi
+        userrequest=$(jq -M -r '.bridges[] | select (.bridge=="'$i'") | .enabled' $INPUT)
+        if [ "$olsron" ]; then
+            portonoff="off"
+        elif [ "$ACTION" == "apply" ] && [ "$userrequest" == "on" ]; then
+            portonoff="on"
+        elif [ "$ACTION" == "apply" ]; then
+            portonoff="off"
+        else 
+            portonoff=""
+        fi
+        for m in $(/usr/sbin/brctl show $i | awk {'print $1","$4'}); do
+            part1=$(echo $m | cut -d"," -f1)
+            [ "$part1" == "bridge" ] && continue
+            part2=$(echo $m | cut -d"," -f2)
+            if [ "$part2" ]; then
+                port=$part2
+            else
+                port=$part1
+            fi
+            portlist[${#portlist[@]}]=$port
+            [ "$portonoff" ] && change_port $port $portonoff 1
+        done
+        vs=$(ls /opt/vyatta/config/active/interfaces/bridge/$i/vif 2>/dev/null)
+        if [ "$vs" ]; then
+            for v in $(ls /opt/vyatta/config/active/interfaces/bridge/$i/vif 2>/dev/null); do
+                olsron=""
+                if [[ "$olsrd4meshif" != "${olsrd4meshif/ /}" ]]; then
+                    olsrd4meshif=$(echo $olsrd4meshif | tr -d \")
+                    for mintf in $olsrd4meshif; do
+                        if [[ "$mintf" == "$i"".""$v" ]]; then
+                            olsron="OLSRv1"
+                        fi
+                    done
+                else
+                    if [[ "$olsrd4meshif" == "$i"".""$v" ]]; then
+                        olsron="OLSRv1"
+                    fi
+                fi
+                userrequest=$(jq -M -r '.bridges[] | select (.bridge=="'$i'.'$v'") | .enabled' $INPUT)
+                if [ "$olsron" ]; then
+                    portonoff="off"
+                elif [ "$ACTION" == "apply" ] && [ "$userrequest" == "on" ]; then
+                    portonoff="on"
+                elif [ "$ACTION" == "apply" ]; then
+                    portonoff="off"
+                else
+                    portonoff=""
+                fi
+                for p in "${portlist[@]}"; do
+                    [ "$portonoff" ] && change_port $p $portonoff 2 $v
+                done
+            done
+        fi
+    done
+
+    #now check for FORWARD of ports that are no longer in a bridge - and remove
+    for vif in $(grep -E "^ebtables -A FORWARD -. eth. -p 802_1Q --vlan-id" /config/scripts/pre-config.d/ebtables.sh | awk {'print $4","$5","$9'}); do
+        d=$(echo $vif | cut -d, -f1 | tr -d "-")
+        p=$(echo $vif | cut -d, -f2)
+        v=$(echo $vif | cut -d, -f3)
+        pp=$(echo $p | sed -e "s/\./\/vif\//g" | sed -e "s/eth/ethernet\/eth/g" | sed -e "s/switch/switch\/switch/g")
+        if [ ! -f /opt/vyatta/config/active/interfaces/$pp/bridge-group/bridge/node.val ]; then
+            change_port $p "off" 2 $v
+        fi
+    done
+    for br in $(grep -E "^ebtables -A FORWARD -. eth.{1,6} -j ACCEPT" /config/scripts/pre-config.d/ebtables.sh | awk {'print $4","$5'}); do
+        d=$(echo $br | cut -d, -f1 | tr -d "-")
+        p=$(echo $br | cut -d, -f2)
+        pp=$(echo $p | sed -e "s/\./\/vif\//g" | sed -e "s/eth/ethernet\/eth/g" | sed -e "s/switch/switch\/switch/g")
+        if [ ! -f /opt/vyatta/config/active/interfaces/$pp/bridge-group/bridge/node.val ]; then
+            change_port $p "off" 1
+        fi
+    done
+
+    #remove EBTABLES for interfaces that no longer exist - and remove
+    ebtablesstate=$(ebtables -L FORWARD)
+    for vif in $(echo "$ebtablesstate" | grep -E "^-p 802_1Q -. eth. --vlan-id" | awk {'print $3","$4","$6'}); do
+        d=$(echo $vif | cut -d, -f1 | tr -d "-")
+        p=$(echo $vif | cut -d, -f2)
+        v=$(echo $vif | cut -d, -f3)
+        pp=$(echo $p | sed -e "s/\./\/vif\//g" | sed -e "s/eth/ethernet\/eth/g" | sed -e "s/switch/switch\/switch/g")
+        if [ ! -f /opt/vyatta/config/active/interfaces/$pp/bridge-group/bridge/node.val ]; then
+            change_port $p "off" 2 $v
+        fi
+    done
+    for br in $(echo "$ebtablesstate" | grep -E "^-. eth.{1,6} -j ACCEPT" | awk {'print $1","$2'}); do
+        d=$(echo $br | cut -d, -f1 | tr -d "-")
+        p=$(echo $br | cut -d, -f2)
+        pp=$(echo $p | sed -e "s/\./\/vif\//g" | sed -e "s/eth/ethernet\/eth/g" | sed -e "s/switch/switch\/switch/g")
+        if [ ! -f /opt/vyatta/config/active/interfaces/$pp/bridge-group/bridge/node.val ]; then
+            change_port $p "off" 1
+        fi
+    done
+    return 0
+}
+
 # function called when you click apply
 apply () {
+    echo "Apply procedure..." >>$log
     updatefromgithub=$(jq -M -r '.updatefromgithub' $INPUT)
     if [[ "$updatefromgithub" == "on" ]]; then
         echo "update from github requested" >>$log 2>>$log
@@ -258,6 +399,10 @@ apply () {
         echo "{\"success\":\"1\"}"
     fi
 }
+
+# always perform modification: remove OLSR bridges or inexistent ports
+# only on apply: remove/add custom ALLOW entries
+check_and_correct
 
 case "$ACTION" in
     load)
