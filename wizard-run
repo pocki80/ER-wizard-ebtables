@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # EdgeMAX Wizard "ER-wizard-ebtables" created 05/2017 by CPO/BMK for FunkFeuer.at
-# Version 20170620
+# Version 20170621
 # ^-- previous line is used from bmk-webstatus-package as version identification, dont remove "Version "
 # Shortform: ER-wizard-AutoUpdate
 #
@@ -356,6 +356,44 @@ apply () {
     fi
     autoupdatefromgithub=$(jq -M -r '.autoupdatefromgithub' $INPUT)
     if [[ "$autoupdatefromgithub" == "on" ]]; then
+        #check for auto-update wizard, install if not there!!
+        wiz=""
+        for i in $(find /config/wizard/feature/ -name wizard.html); do
+            if [[ $(head $i -n 10 | grep "ER-wizard-AutoUpdate") ]]; then
+                wiz=$i
+                break
+            fi
+        done
+        if [ ! $wiz ]; then 
+            #autoupdate-wizard mit scripten fehlt, installieren - offline-install???
+            git2owner="pocki80"
+            git2repo="ER-wizard-AutoUpdate"
+            git2branch="master"
+            wiz="/config/wizard/feature/AutoUpdate/wizard.html"
+            echo "Installing "$(dirname $wiz)"..." >>$log 2>>$log
+            if [ ! -d $(dirname $wiz) ]; then 
+                mkdir $(dirname $wiz) >>$log 2>>$log
+                chmod --reference=$(dirname $olsrdwizard) $(dirname $wiz) >>$log 2>>$log
+                chown --reference=$(dirname $olsrdwizard) $(dirname $wiz) >>$log 2>>$log
+            fi
+            curl -sL -o /tmp/ER-wizard.tar.gz --connect-timeout 2 --speed-time 2 https://api.github.com/repos/$git2owner/$git2repo/tarball >>$log 2>>$log
+            tar   -xvzf /tmp/ER-wizard.tar.gz -C /tmp >/tmp/result.txt 2>>$log
+            rm -f       /tmp/ER-wizard.tar.gz >>$log 2>>$log
+            while read LINE; do
+                set $LINE
+                if [ $(basename $LINE) == "wizard-run" ] || [ $(basename $LINE) == "wizard.html" ] || [ $(basename $LINE) == "validator.json" ]; then W=1; else W=2; fi
+                if [ -f "/tmp/"$LINE ] && [ $W == "1" ]; then
+                    sudo cp "/tmp/"$LINE $(dirname $wiz)"/"$(basename $LINE) >>$log 2>>$log
+                    sudo chmod --reference=$(dirname $olsrdwizard)"/"$(basename $LINE) $(dirname $wiz)"/"$(basename $LINE) >>$log 2>>$log
+                    sudo chown --reference=$(dirname $olsrdwizard)"/"$(basename $LINE) $(dirname $wiz)"/"$(basename $LINE) >>$log 2>>$log
+                fi
+            done < /tmp/result.txt
+            rm /tmp/result.txt
+            rm -Rf /tmp/$git2owner-$git2repo* >>$log 2>>$log
+            chmod 755 $(dirname $wiz)"/"wizard-run >>$log 2>>$log
+            echo "Installing done, now triggering initial load..." >>$log 2>>$log
+            $(dirname $wiz)"/"wizard-run load  >>$log 2>>$log
+        fi
         #remove "no" if exists
         if [ -f /config/user-data/autoupdate.dat ] &&
            [ "$(grep -i "wizard-ebtables=no" /config/user-data/autoupdate.dat |wc -l)" == "1" ]; then
