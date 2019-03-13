@@ -153,6 +153,7 @@ load () {
             fi
             rules=$(echo "$ebtablesacceptv" | grep -c "vlan-id $v ")
             [ $rules \> 0 ] && bridgestatus='"enabled":"on",' || bridgestatus=''
+            name=$(cat /opt/vyatta/config/active/interfaces/bridge/$(echo $bridge | sed -e 's/\./\/vif\//g')/description/node.val)
             bridges=$bridges'{"olsr":"'${olsron}'",'$bridgestatus'"bridge":"'${bridge}'.'${v}'","name":"'${name}'"},'
         done
     done
