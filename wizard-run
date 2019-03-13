@@ -134,7 +134,7 @@ load () {
             fi
         fi
         [ $(echo $olsr2meshif | grep -c $bridge) \> 0 ] && olsron=$olsron"v2"
-        name=$(cat /opt/vyatta/config/active/interfaces/bridge/$(echo $port | sed -e 's/\./\/vif\//g')/description/node.val)
+        name=$(cat /opt/vyatta/config/active/interfaces/bridge/$(echo $bridge | sed -e 's/\./\/vif\//g')/description/node.val)
         bridges=$bridges'{"olsr":"'${olsron}'",'$bridgestatus'"bridge":"'${bridge}'","name":"'${name}'"},'
         ## now check for vifs of that bridge, i.e. br0.1100
         for v in $(ls /opt/vyatta/config/active/interfaces/bridge/$bridge/vif 2>/dev/null); do

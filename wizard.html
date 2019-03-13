@@ -2,7 +2,7 @@
 
 EdgeMAX Wizard "ER-wizard-ebtables" created 05/2017 by CPO for FunkFeuer.at
 Works on EdgeRouter and EdgeRouter X / X-SFP (system version 1.9.0+)
-versioninfo=201903130
+versioninfo=201903131
 ^-- use version identifier as number: YYYYMMDDX whereas X can be intraday-version
 autoupdate=201810010
 ^-- set autoupdate the same version identifier to allow autoupdates
@@ -25,7 +25,7 @@ autoupdate=201810010
 </div>
 <fieldset id="bridges" name="bridges" class="primary expanded">
     <legend>ALLOW ebtables FORWARD for these bridges and their interfaces</legend>
-    Enable the checkbox for a bridge interface in case you want to <b>allow</b> traffic being forwarded between the interfaces of this bridge.<br> 
+    Enable the checkbox for a bridge interface in case you want to <b>allow</b> traffic being forwarded between the interfaces of this bridge. 
     This wizard will not avoid allowing FORWARD for a bridge that is used by olsrd or olsrd2.
     <div class="addable" data-min="1" data-max="1" data-object="bridges" data-objectify="1">
         <div class="addable-template" style="padding-top:0px;">
@@ -33,7 +33,7 @@ autoupdate=201810010
                 <div><input name="enabled" type="checkbox" onclick="validate()" /></div>
                 <div><input id="bridge" name="bridge" size="5" disabled /></div>
                 <div><input id="olsr" name="olsr" size="8" disabled /></div>
-                <div><input id="name" name="name" size="20" disabled /></div>
+                <div><input id="name" name="name" size="40" disabled /></div>
             </div>
         </div>
         <div class="addable-container"></div>
@@ -49,7 +49,7 @@ autoupdate=201810010
                 <div><input name="enabled" type="checkbox" onclick="validate()" disabled /></div>
                 <div><input id="interface" name="interfaces" size="5" disabled /></div>
                 <div><input id="rules" name="rules" size="8" disabled /></div>
-                <div><input id="name" name="name" size="20" disabled /></div>
+                <div><input id="name" name="name" size="40" disabled /></div>
             </div>
         </div>
         <div class="addable-container"></div>
