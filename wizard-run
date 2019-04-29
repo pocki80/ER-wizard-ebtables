@@ -91,7 +91,7 @@ load () {
     # get mesh interfaces
     olsrd4default='/etc/default/olsrd'
     olsrd4conf='/config/user-data/olsrd4.conf'
-    olsrd4meshif=$((grep -qE 'DAEMON_OPTS=.*MESH_IF=' $olsrd4default) && awk -F= '/MESH_IF=/ { print $2 }' $olsrd4default | tr -d \"; awk -F" " '/^Interface.*\{/ {print $2}' $olsrd4conf | tr -d \")
+    olsrd4meshif=$(echo $((grep -qE 'DAEMON_OPTS=.*MESH_IF=' $olsrd4default) && awk -F= '/MESH_IF=/ { print $2 }' $olsrd4default | tr -d \"; awk -F" " '/^Interface.*\{/ {print $2}' $olsrd4conf | tr -d \"))
     olsr2meshif=$(sed -e 's/[ \t]*#.*$//' /config/olsrd2/olsrd2.conf | grep "\[interface=br" 2>/dev/null | cut -d= -f2 | tr -d "\]")
     # get current accept-rules
     ebtablesaccept=$(ebtables -L FORWARD | sed -e '/^$/d' | grep -E "\-[io] eth.{1,6} \-j ACCEPT")
@@ -215,7 +215,7 @@ check_and_correct () {
     # get mesh interfaces
     olsrd4default='/etc/default/olsrd'
     olsrd4conf='/config/user-data/olsrd4.conf'
-    olsrd4meshif=$((grep -qE 'DAEMON_OPTS=.*MESH_IF=' $olsrd4default) && awk -F= '/MESH_IF=/ { print $2 }' $olsrd4default | tr -d \"; awk -F" " '/^Interface.*\{/ {print $2}' $olsrd4conf | tr -d \")
+    olsrd4meshif=$(echo $((grep -qE 'DAEMON_OPTS=.*MESH_IF=' $olsrd4default) && awk -F= '/MESH_IF=/ { print $2 }' $olsrd4default | tr -d \"; awk -F" " '/^Interface.*\{/ {print $2}' $olsrd4conf | tr -d \"))
     olsr2meshif=$(sed -e 's/[ \t]*#.*$//' /config/olsrd2/olsrd2.conf | grep "\[interface=br" 2>/dev/null | cut -d= -f2 | tr -d "\]")
 
     # loop bridges and bridge-vif for all member-ports
