@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # EdgeMAX Wizard "ER-wizard-ebtables" created 05/2017 by CPO/BMK for FunkFeuer.at
-# Version 20190313
+# Version 20190429
 # ^-- previous line is used from bmk-webstatus-package as version identification, dont remove "Version "
 # Shortform: ER-wizard-ebtables
 #
@@ -90,8 +90,9 @@ load () {
     ####### get bridges and their interfaces 
     # get mesh interfaces
     olsrd4default='/etc/default/olsrd'
-    olsrd4meshif=$(awk -F= '/MESH_IF=/ { print $2 }' $olsrd4default | tr -d \")
-    olsr2meshif=$(grep "\[interface=br" /config/olsrd2/olsrd2.conf 2>/dev/null | cut -d= -f2 | tr -d "\]")
+    olsrd4conf='/config/user-data/olsrd4.conf'
+    olsrd4meshif=$((grep -qE 'DAEMON_OPTS=.*MESH_IF=' $olsrd4default) && awk -F= '/MESH_IF=/ { print $2 }' $olsrd4default | tr -d \"; awk -F" " '/^Interface.*\{/ {print $2}' $olsrd4conf | tr -d \")
+    olsr2meshif=$(sed -e 's/[ \t]*#.*$//' /config/olsrd2/olsrd2.conf | grep "\[interface=br" 2>/dev/null | cut -d= -f2 | tr -d "\]")
     # get current accept-rules
     ebtablesaccept=$(ebtables -L FORWARD | sed -e '/^$/d' | grep -E "\-[io] eth.{1,6} \-j ACCEPT")
     ebtablesacceptv=$(ebtables -L FORWARD | sed -e '/^$/d' | grep -E "\-p 802_1Q \-[io] eth. --vlan-id .{1,4} \-j ACCEPT")
@@ -117,7 +118,7 @@ load () {
             rules=$(echo "$ebtablesaccept" | grep -c " $port \-j")
         done
         [ $rules \> 0 ] && intfstatus='"enabled":"on",' && bridgestatus='"enabled":"on",'
-        name=$(cat /opt/vyatta/config/active/interfaces/ethernet/$(echo $port | sed -e 's/\./\/vif\//g')/description/node.val)
+        name=$(cat /opt/vyatta/config/active/interfaces/ethernet/$(echo $port | sed -e 's/\./\/vif\//g')/description/node.val 2>/dev/null)
         interfaces=$interfaces'{'$intfstatus'"interface":"'${port}'","name":"'${name}'","rules":"'${rules}'"},'
         [ "$moveon" ] && continue
         olsron=""
@@ -134,7 +135,7 @@ load () {
             fi
         fi
         [ $(echo $olsr2meshif | grep -c $bridge) \> 0 ] && olsron=$olsron"v2"
-        name=$(cat /opt/vyatta/config/active/interfaces/bridge/$(echo $bridge | sed -e 's/\./\/vif\//g')/description/node.val)
+        name=$(cat /opt/vyatta/config/active/interfaces/bridge/$(echo $bridge | sed -e 's/\./\/vif\//g')/description/node.val 2>/dev/null)
         bridges=$bridges'{"olsr":"'${olsron}'",'$bridgestatus'"bridge":"'${bridge}'","name":"'${name}'"},'
         ## now check for vifs of that bridge, i.e. br0.1100
         for v in $(ls /opt/vyatta/config/active/interfaces/bridge/$bridge/vif 2>/dev/null); do
@@ -213,8 +214,9 @@ check_and_correct () {
     ebtablesstate=$(ebtables -L FORWARD)
     # get mesh interfaces
     olsrd4default='/etc/default/olsrd'
-    olsrd4meshif=$(awk -F= '/MESH_IF=/ { print $2 }' $olsrd4default | tr -d \")
-    olsr2meshif=$(grep "\[interface=br" /config/olsrd2/olsrd2.conf 2>/dev/null | cut -d= -f2 | tr -d "\]")
+    olsrd4conf='/config/user-data/olsrd4.conf'
+    olsrd4meshif=$((grep -qE 'DAEMON_OPTS=.*MESH_IF=' $olsrd4default) && awk -F= '/MESH_IF=/ { print $2 }' $olsrd4default | tr -d \"; awk -F" " '/^Interface.*\{/ {print $2}' $olsrd4conf | tr -d \")
+    olsr2meshif=$(sed -e 's/[ \t]*#.*$//' /config/olsrd2/olsrd2.conf | grep "\[interface=br" 2>/dev/null | cut -d= -f2 | tr -d "\]")
 
     # loop bridges and bridge-vif for all member-ports
     for i in $(ls /opt/vyatta/config/active/interfaces/bridge/ 2>/dev/null); do
